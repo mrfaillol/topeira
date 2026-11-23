@@ -5,7 +5,7 @@ license: MIT
 metadata:
   version: "3.0.0"
   platforms: [macos]
-  runtimes: [claude-code, codex, gemini-cli, cursor, opencode, any-agent-skills-runtime]
+  runtimes: [antigravity, claude-code, codex, gemini-cli, cursor, opencode, any-agent-skills-runtime]
 ---
 
 # Topeira — assisted macOS storage cleanup
@@ -26,6 +26,24 @@ You are an **assisted, not autonomous**, macOS storage specialist. You measure f
 - Never run `mo clean` as an autonomous real cleanup. Use `mo clean --dry-run`; execute only confirmed categories/paths, or let the user drive Mole interactively.
 - Never use `--yes` on `scripts/topeira-cleanup.sh` unless the user confirmed the exact categories in the same turn.
 - Never install tools (including Mole: `brew install mole`) without the user's OK. Without Mole, continue with native tools and `topeira-map.py`.
+
+## Clean Mac or someone else's computer — check first
+
+Before any helper script, find out what this machine has. Run once:
+
+```bash
+xcode-select -p >/dev/null 2>&1 && echo "devtools: yes" || echo "devtools: NO"
+command -v brew mo docker 2>/dev/null; whoami; id -Gn | grep -qw admin && echo admin || echo "not admin"
+```
+
+- **`devtools: NO`** → do **not** call `python3`, `swift`, `git`, `make` or `clang`. On a clean Mac they are stubs that pop the "install Command Line Tools" dialog, which installs software. Use only the built-in path: `scripts/topeira-quickmap.sh` (bash + du + osascript), `scripts/topeira-inventory.sh`, and plain `df`/`du`/`diskutil`/`tmutil`. You may build the treemap page yourself from the quickmap numbers if the user wants a visual.
+- **No Mole** is normal here. Do not offer Homebrew or Mole on a machine the user does not own.
+- **Not the user's computer** (borrowed, a relative's, a client's — ask if unclear): the files belong to the owner.
+  - Tier C (Downloads, Trash, Movies) and every red line need the **owner's** OK, not just the operator's.
+  - No settings changes without the owner: granting Full Disk Access, login items, launchd, cron, iCloud options.
+  - No `sudo`. If something needs an admin password, explain and let the owner type it.
+  - Keep logs and maps in `~/.local/state/topeira/`; at the end offer to remove them and the skill (`install.sh --uninstall`).
+- **No Full Disk Access** is fine for a first pass: say which folders under-report and that sizes there are a floor.
 
 ## Red lines
 
@@ -99,7 +117,7 @@ Mole has no `-y`. Topeira's red lines win even if Mole marks something cleanable
 
 - `topeira` — baseline, Mole dry-run, consolidated plan.
 - `topeira inventory` — read-only; baseline + candidates, zero actions.
-- `topeira map` / `mapa` — whole-disk visual map. Read [references/visual-map.md](references/visual-map.md).
+- `topeira map` / `mapa` — whole-disk visual map. With devtools: `topeira-map.py`, read [references/visual-map.md](references/visual-map.md). Without: `topeira-quickmap.sh`.
 - `topeira approve — map <id>` / `aprovar — mapa <id>` — the user pasted an approval request from the map page. It **caps** scope; re-measure and re-apply every guard per item.
 - `topeira urgent <N>GB` — emergency (≤ 5 GB free): prioritise Tier A, still confirm categories.
 - `topeira docker` — `docker system df` first; prune only after Docker-specific confirmation.
@@ -147,12 +165,22 @@ Only totals and category paths go in the log — never file contents or personal
 
 ## Helper scripts
 
+Built-in only (work on any Mac):
+
 ```bash
-bash    "$SKILL_DIR/scripts/topeira-inventory.sh" [--mole] [--debug] [--volume]   # read-only baseline
-python3 "$SKILL_DIR/scripts/topeira-map.py" [--roots ~] [--redact] [--no-open]     # read-only visual map
-swift   "$SKILL_DIR/scripts/topeira-icloud-status.swift" <paths...>                 # read-only iCloud status
-bash    "$SKILL_DIR/scripts/topeira-cleanup.sh" --dry-run                           # DANGEROUS without --dry-run
+bash "$SKILL_DIR/scripts/topeira-quickmap.sh" [<root> [topN]]              # read-only top-folders map, Markdown
+bash "$SKILL_DIR/scripts/topeira-inventory.sh" [--mole] [--debug] [--volume]   # read-only baseline
+bash "$SKILL_DIR/scripts/topeira-cleanup.sh" --dry-run                      # DANGEROUS without --dry-run
 ```
+
+Need Xcode Command Line Tools (`xcode-select -p` must succeed — never trigger the install):
+
+```bash
+python3 "$SKILL_DIR/scripts/topeira-map.py" [--roots ~] [--redact] [--no-open]   # full visual treemap
+swift   "$SKILL_DIR/scripts/topeira-icloud-status.swift" <paths...>               # per-file iCloud status
+```
+
+Where the skill lives: Antigravity `~/.gemini/config/skills/topeira`, Claude Code `~/.claude/skills/topeira`, Codex `~/.codex/skills/topeira`, generic `~/.agents/skills/topeira`. If `$SKILL_DIR` is unknown, `ls -d ~/.gemini/config/skills/topeira ~/.agents/skills/topeira ~/.claude/skills/topeira 2>/dev/null`.
 
 `topeira-cleanup.sh` is an interactive example of a Tier A/B run (per-category prompts, real deltas, log). Read it before running it; adapt the categories to the user's machine.
 
@@ -172,7 +200,7 @@ launchd/cron/ssh changes are configuration: propose, get explicit OK, then apply
 3. Open apps (browsers, Spotify, Electron apps, IDEs) regenerate caches faster than you delete them; estimates go stale.
 4. `~/Library/Application Support` is app **data**, not cache.
 5. `find / ...` still triggers TCC; prefer specific paths.
-6. Agent sandboxes lie about disk: some runtimes' sandboxed shells skip dotfiles in `du` and make `rm`/`pgrep` fail with exit 0. Disk measurement and cleanup must run unsandboxed (e.g. Claude Code: `dangerouslyDisableSandbox: true`; Codex: a non-sandboxed approval mode). TCC still applies even unsandboxed.
+6. Agent sandboxes lie about disk: some runtimes' sandboxed shells skip dotfiles in `du` and make `rm`/`pgrep` fail with exit 0. Disk measurement and cleanup must run unsandboxed (e.g. Claude Code: `dangerouslyDisableSandbox: true`; Codex: a non-sandboxed approval mode). TCC still applies even unsandboxed. In Antigravity, protected folders are visible only if Antigravity.app itself has Full Disk Access; keep terminal commands on "request review" so the user sees each destructive command before it runs.
 7. Zsh word-splitting: in loops over paths use `while IFS= read -r p; do …; done`, never `du -sh $(find …)`.
 8. `/private/var/folders/*` has lock files of running apps.
 9. APFS clones: apparent size can be far above what deleting frees (one uv cache: 16.8 GB apparent, 2.5 GB exclusive). `topeira-map.py` reports both.

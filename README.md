@@ -24,7 +24,8 @@ topeira/
 │   ├── documents-icloud-curation.md # Documents/iCloud, Remove Download
 │   └── continuous-drill.md          # multi-round drills, worktrees, agent histories
 └── scripts/
-    ├── topeira-map.py               # read-only disk map → HTML treemap (exclusive vs apparent bytes)
+    ├── topeira-quickmap.sh          # read-only top-folders map, built-in tools only
+    ├── topeira-map.py               # read-only disk map → HTML treemap (needs Command Line Tools)
     ├── topeira-map.template.html
     ├── topeira-inventory.sh         # read-only baseline
     ├── topeira-icloud-status.swift  # read-only per-file iCloud status
@@ -33,14 +34,28 @@ topeira/
 
 ## Install
 
-**Any runtime (script):**
+**Antigravity on a Mac without dev tools (no git, no Homebrew, no Python needed):**
+
+1. Open Antigravity once (it creates `~/.gemini`).
+2. Open **Terminal** (or ask Antigravity's agent to run it) and paste:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/mrfaillol/topeira/main/install.sh | bash
+   ```
+
+   Prefer to read it first? `curl -fsSL https://raw.githubusercontent.com/mrfaillol/topeira/main/install.sh -o topeira-install.sh`, open it, then `bash topeira-install.sh`.
+3. In Antigravity's agent panel, type **`topeira inventory`**.
+
+The skill lands in `~/.gemini/config/skills/topeira` (Antigravity's global skills folder). On a Mac without Xcode Command Line Tools the agent uses only built-in tools (`topeira-quickmap.sh`) and never triggers the "install developer tools" dialog. To remove everything afterwards: `curl -fsSL https://raw.githubusercontent.com/mrfaillol/topeira/main/install.sh | bash -s -- --uninstall`.
+
+**Any runtime, from a clone:**
 
 ```bash
 git clone https://github.com/mrfaillol/topeira.git
 cd topeira && ./install.sh
 ```
 
-Copies the skill to `~/.agents/skills/topeira` and symlinks it into `~/.claude/skills`, `~/.codex/skills`, `~/.cursor/skills`, `~/.gemini/skills` and `~/.config/opencode/skills` — only for runtimes whose config folder already exists. Existing installs are backed up, not overwritten.
+Copies the skill to `~/.agents/skills/topeira` and into `~/.gemini/config/skills` (Antigravity), `~/.claude/skills`, `~/.codex/skills`, `~/.cursor/skills` and `~/.config/opencode/skills` — only for runtimes whose config folder already exists. Real copies, not symlinks; re-run to update. Other folders with the same name are backed up, never overwritten.
 
 **skills CLI:** `npx skills add mrfaillol/topeira`
 
@@ -77,7 +92,9 @@ Everything is logged append-only to `~/.local/state/topeira/topeira_log.md` (ove
 
 ## Português
 
-Skill de limpeza de disco do macOS para qualquer agente de IA. Mede antes, mostra um mapa visual, propõe um plano por nível de risco e só apaga o que você confirmar, categoria por categoria. Instale com `./install.sh` e peça ao agente: `topeira inventory` ou `topeira mapa`.
+Skill de limpeza de disco do macOS para qualquer agente de IA. Mede antes, mostra um mapa, propõe um plano por nível de risco e só apaga o que você confirmar, categoria por categoria.
+
+**No Antigravity, num Mac sem ferramentas de desenvolvimento:** abra o Antigravity uma vez, cole no Terminal `curl -fsSL https://raw.githubusercontent.com/mrfaillol/topeira/main/install.sh | bash` e, no painel do agente, digite `topeira inventory`. Em computador de outra pessoa, a skill pede o OK do dono antes de mexer em arquivos dele ou em ajustes do sistema, não usa `sudo` e, no fim, oferece remover tudo (`... | bash -s -- --uninstall`).
 
 ## License
 
